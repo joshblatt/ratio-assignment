@@ -1,13 +1,13 @@
 import * as anchor from '@project-serum/anchor';
 import { Program } from '@project-serum/anchor';
-import { SimpleCli } from '../target/types/simple_cli';
+import { SimpleCpi } from '../target/types/simple_cpi';
 
-describe('simple-cli', () => {
+describe('simple-cpi', () => {
 
   // Configure the client to use the local cluster.
   anchor.setProvider(anchor.Provider.env());
 
-  const program = anchor.workspace.SimpleCli as Program<SimpleCli>;
+  const program = anchor.workspace.SimpleCpi as Program<SimpleCpi>;
 
   it('Is initialized!', async () => {
     // Add your test here.

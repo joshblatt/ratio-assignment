@@ -1,12 +1,12 @@
 [package]
-name = "simple-cli"
+name = "simple-cpi"
 version = "0.1.0"
 description = "Created with Anchor"
 edition = "2018"
 
 [lib]
 crate-type = ["cdylib", "lib"]
-name = "simple_cli"
+name = "simple_cpi"
 
 [features]
 no-entrypoint = []
