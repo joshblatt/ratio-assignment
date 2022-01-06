@@ -41,6 +41,7 @@ describe('simple-cpi', () => {
     );
 
     await pool_program.provider.send(create_mint_tx, [mint]);
+    
     sender_token = Keypair.generate();
     let create_sender_token_tx = new Transaction().add(
       // create token account
@@ -88,7 +89,7 @@ describe('simple-cpi', () => {
       Token.createMintToInstruction(
         TOKEN_PROGRAM_ID, // always TOKEN_PROGRAM_ID
         mint.publicKey, // mint
-        sender_token.publicKey, // receiver (sholud be a token account)
+        sender_token.publicKey, // receiver (should be a token account)
         pool_program.provider.wallet.publicKey, // mint authority
         [], // only multisig account will use. leave it empty now.
         2e6 // amount. if your decimals is 8, you mint 10^8 for 1 token.
