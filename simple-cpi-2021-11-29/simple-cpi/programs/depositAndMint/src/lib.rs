@@ -11,4 +11,5 @@ pub mod simple_cpi {
 }
 
 #[derive(Accounts)]
-pub struct Initialize {}
+pub struct Initialize {
+}
