@@ -41,7 +41,7 @@ describe('simple-cpi', () => {
     );
 
     await pool_program.provider.send(create_mint_tx, [mint]);
-    
+
     sender_token = Keypair.generate();
     let create_sender_token_tx = new Transaction().add(
       // create token account
@@ -102,12 +102,33 @@ describe('simple-cpi', () => {
   });
 
 
-  it('Is initialized!', async () => {
-    // Add your test here.
+  it('Deposit Wrapper', async () => {
     let amount = new anchor.BN(1e6);
-    const mint_tx = await mint_and_deposit_program.rpc.initialize({});
-    const pool_tx = await pool_program.rpc.depositWrapper(amount, {});
-    console.log("Your Mint + Deposit transaction signature", mint_tx);
-    console.log("Your Pool transaction signature", mint_tx);
+    await pool_program.rpc.depositWrapper(amount, {
+      accounts: {
+        sender: pool_program.provider.wallet.publicKey,
+        senderToken: sender_token.publicKey,
+        receiverToken: receiver_token.publicKey,
+        mint: mint.publicKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      }
+    })
+    console.log("User Token Balance: ", await pool_program.provider.connection.getTokenAccountBalance(sender_token.publicKey));
+    console.log("Pool Token Balance: ", await pool_program.provider.connection.getTokenAccountBalance(receiver_token.publicKey));
+  });
+
+  it('Withdraw Wrapper', async () => {
+    let amount = new anchor.BN(1e6);
+    await pool_program.rpc.withdrawWrapper(amount, {
+      accounts: {
+        sender: pool_program.provider.wallet.publicKey,
+        senderToken: sender_token.publicKey,
+        receiverToken: receiver_token.publicKey,
+        mint: mint.publicKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      }
+    })
+    console.log("User Token Balance: ", await pool_program.provider.connection.getTokenAccountBalance(sender_token.publicKey));
+    console.log("Pool Token Balance: ", await pool_program.provider.connection.getTokenAccountBalance(receiver_token.publicKey));
   });
 });
