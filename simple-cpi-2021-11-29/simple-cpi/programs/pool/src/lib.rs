@@ -13,20 +13,14 @@ pub mod pool {
         msg!("Remaining Tokens: {}", ctx.accounts.depositer_token_account.amount);
         Ok(())
     }
-    // pub fn withdraw_wrapper(ctx: Context<WithdrawWrapper>, amount: u64) -> ProgramResult {
-    //     msg!("Starting Tokens: {}", ctx.accounts.receiver_token.amount);
-    //     token::transfer(ctx.accounts.transfer_ctx(), amount)?;
-    //     ctx.accounts.receiver_token.reload()?;
-    //     msg!("Remaining Tokens: {}", ctx.accounts.receiver_token.amount);
-    //     Ok(())
-    // }
+    pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> ProgramResult {
+        msg!("Starting Tokens: {}", ctx.accounts.withdrawer_token_account.amount);
+        token::transfer(ctx.accounts.withdraw_ctx(), amount)?;
+        ctx.accounts.withdrawer_token_account.reload()?;
+        msg!("Remaining Tokens: {}", ctx.accounts.withdrawer_token_account.amount);
+        Ok(())
+    }
 }
-
-// #[account]
-// pub struct PoolAccount {
-//     pub owner: Pubkey, // user that the pool account belongs to
-//     pub authority: Pubkey, // PDA for pool
-// }
 
 #[derive(Accounts)]
 pub struct Deposit<'info> {
@@ -53,26 +47,26 @@ impl<'info> Deposit<'info> {
     }
 }
 
-// #[derive(Accounts)]
-// pub struct WithdrawWrapper<'info> {
-//     pub sender: Signer<'info>,
-//     #[account(mut)]
-//     pub sender_token: Account<'info, TokenAccount>,
-//     #[account(mut)]
-//     pub receiver_token: Account<'info, TokenAccount>,
-//     pub mint: Account<'info, Mint>,
-//     pub token_program: Program<'info, Token>,
-// }
+#[derive(Accounts)]
+pub struct Withdraw<'info> {
+    pub withdrawer: Signer<'info>,
+    #[account(mut)]
+    pub withdrawer_token_account: Account<'info, TokenAccount>,
+    pub pool_account: Signer<'info>,
+    #[account(mut)]
+    pub pool_token_account: Account<'info, TokenAccount>,
+    pub token_program: Program<'info, Token>,
+}
 
-// impl<'info> WithdrawWrapper<'info> {
-//     fn transfer_ctx(&self) -> CpiContext<'_, '_, '_, 'info, Transfer<'info>> {
-//         CpiContext::new(
-//             self.token_program.to_account_info(),
-//             Transfer {
-//                 from: self.sender_token.to_account_info(),
-//                 to: self.receiver_token.to_account_info(),
-//                 authority: self.sender.to_account_info(),
-//             },
-//         )
-//     }
-// }
+impl<'info> Withdraw<'info> {
+    fn withdraw_ctx(&self) -> CpiContext<'_, '_, '_, 'info, Transfer<'info>> {
+        CpiContext::new(
+            self.token_program.to_account_info(),
+            Transfer {
+                from: self.pool_token_account.to_account_info(),
+                to: self.withdrawer_token_account.to_account_info(),
+                authority: self.pool_account.to_account_info(),
+            },
+        )
+    }
+}
