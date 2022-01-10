@@ -10,6 +10,7 @@ describe('simple-cpi', () => {
   // Configure the client to use the local cluster.
   anchor.setProvider(anchor.Provider.env());
 
+  const user_program = anchor.workspace.Pool as Program<Pool>;
   const pool_program = anchor.workspace.Pool as Program<Pool>;
   const mint_and_deposit_program = anchor.workspace.MintAndDeposit as Program<MintAndDeposit>;
 
@@ -24,10 +25,10 @@ describe('simple-cpi', () => {
     let create_mint_tx = new Transaction().add(
       // create mint account
       SystemProgram.createAccount({
-        fromPubkey: pool_program.provider.wallet.publicKey,
+        fromPubkey: user_program.provider.wallet.publicKey,
         newAccountPubkey: mint_account.publicKey,
         space: MintLayout.span,
-        lamports: await Token.getMinBalanceRentForExemptMint(pool_program.provider.connection),
+        lamports: await Token.getMinBalanceRentForExemptMint(user_program.provider.connection),
         programId: TOKEN_PROGRAM_ID,
       }),
       // init mint account
@@ -35,21 +36,21 @@ describe('simple-cpi', () => {
         TOKEN_PROGRAM_ID, // always TOKEN_PROGRAM_ID
         mint_account.publicKey, // mint pubkey
         6, // decimals
-        pool_program.provider.wallet.publicKey, // mint authority
-        pool_program.provider.wallet.publicKey // freeze authority (if you don't need it, you can set `null`)
+        user_program.provider.wallet.publicKey, // mint authority
+        user_program.provider.wallet.publicKey // freeze authority (if you don't need it, you can set `null`)
       )
     );
 
-    await pool_program.provider.send(create_mint_tx, [mint_account]);
+    await user_program.provider.send(create_mint_tx, [mint_account]);
 
     depositer_token_account = Keypair.generate();
     let create_sender_token_tx = new Transaction().add(
       // create token account
       SystemProgram.createAccount({
-        fromPubkey: pool_program.provider.wallet.publicKey,
+        fromPubkey: user_program.provider.wallet.publicKey,
         newAccountPubkey: depositer_token_account.publicKey,
         space: AccountLayout.span,
-        lamports: await Token.getMinBalanceRentForExemptAccount(pool_program.provider.connection),
+        lamports: await Token.getMinBalanceRentForExemptAccount(user_program.provider.connection),
         programId: TOKEN_PROGRAM_ID,
       }),
       // init mint account
@@ -57,21 +58,21 @@ describe('simple-cpi', () => {
         TOKEN_PROGRAM_ID, // always TOKEN_PROGRAM_ID
         mint_account.publicKey, // mint
         depositer_token_account.publicKey, // token account
-        pool_program.provider.wallet.publicKey // owner of token account
+        user_program.provider.wallet.publicKey // owner of token account
       )
     );
 
-    await pool_program.provider.send(create_sender_token_tx, [depositer_token_account]);
+    await user_program.provider.send(create_sender_token_tx, [depositer_token_account]);
 
-    pool_account = Keypair.generate();
+    //pool_account = Keypair.generate();
     pool_token_account = Keypair.generate();
     let create_receiver_token_tx = new Transaction().add(
       // create token account
       SystemProgram.createAccount({
-        fromPubkey: pool_program.provider.wallet.publicKey,
+        fromPubkey: user_program.provider.wallet.publicKey,
         newAccountPubkey: pool_token_account.publicKey,
         space: AccountLayout.span,
-        lamports: await Token.getMinBalanceRentForExemptAccount(pool_program.provider.connection),
+        lamports: await Token.getMinBalanceRentForExemptAccount(user_program.provider.connection),
         programId: TOKEN_PROGRAM_ID,
       }),
       // init mint account
@@ -79,36 +80,36 @@ describe('simple-cpi', () => {
         TOKEN_PROGRAM_ID, // always TOKEN_PROGRAM_ID
         mint_account.publicKey, // mint
         pool_token_account.publicKey, // token account
-        pool_account.publicKey // owner of token account
+        pool_program.provider.wallet.publicKey // owner of token account
       )
     );
 
-    await pool_program.provider.send(create_receiver_token_tx, [pool_token_account]);
+    await user_program.provider.send(create_receiver_token_tx, [pool_token_account]);
 
     let mint_tokens_tx = new Transaction().add(
       Token.createMintToInstruction(
         TOKEN_PROGRAM_ID, // always TOKEN_PROGRAM_ID
         mint_account.publicKey, // mint
         depositer_token_account.publicKey, // receiver (should be a token account)
-        pool_program.provider.wallet.publicKey, // mint authority
+        user_program.provider.wallet.publicKey, // mint authority
         [], // only multisig account will use. leave it empty now.
         2e6 // amount. if your decimals is 8, you mint 10^8 for 1 token.
       )
     );
 
-    await pool_program.provider.send(mint_tokens_tx);
+    await user_program.provider.send(mint_tokens_tx);
 
-    console.log("token balance: ", await pool_program.provider.connection.getTokenAccountBalance(depositer_token_account.publicKey));
+    console.log("token balance: ", await user_program.provider.connection.getTokenAccountBalance(depositer_token_account.publicKey));
   });
 
 
   it('Deposit Test', async () => {
     let amount = new anchor.BN(1e6);
-    await pool_program.rpc.deposit(amount, {
+    await user_program.rpc.deposit(amount, {
       accounts: {
-        depositer: pool_program.provider.wallet.publicKey,
+        depositer: user_program.provider.wallet.publicKey,
         depositerTokenAccount: depositer_token_account.publicKey,
-        poolAccount: pool_account.publicKey,
+        poolAccount: pool_program.provider.wallet.publicKey,
         // poolAccount: {
         //   owner: depositer_token_account.PublicKey,
         //   aurthority: pool_account.PublicKey,
@@ -117,22 +118,22 @@ describe('simple-cpi', () => {
         tokenProgram: TOKEN_PROGRAM_ID,
       }
     })
-    console.log("User Token Balance: ", await pool_program.provider.connection.getTokenAccountBalance(depositer_token_account.publicKey));
-    console.log("Pool Token Balance: ", await pool_program.provider.connection.getTokenAccountBalance(pool_token_account.publicKey));
+    console.log("User Token Balance: ", await user_program.provider.connection.getTokenAccountBalance(depositer_token_account.publicKey));
+    console.log("Pool Token Balance: ", await user_program.provider.connection.getTokenAccountBalance(pool_token_account.publicKey));
   });
 
-  // it('Withdraw Wrapper', async () => {
-  //   let amount = new anchor.BN(1e6);
-  //   await pool_program.rpc.withdrawWrapper(amount, {
-  //     accounts: {
-  //       sender: pool_program.provider.wallet.publicKey,
-  //       senderToken: depositer_token_account.publicKey,
-  //       receiverToken: pool_token_account.publicKey,
-  //       mint: mint_account.publicKey,
-  //       tokenProgram: TOKEN_PROGRAM_ID,
-  //     }
-  //   })
-  //   console.log("User Token Balance: ", await pool_program.provider.connection.getTokenAccountBalance(depositer_token_account.publicKey));
-  //   console.log("Pool Token Balance: ", await pool_program.provider.connection.getTokenAccountBalance(pool_token_account.publicKey));
-  // });
+  it('Withdraw Test', async () => {
+    let amount = new anchor.BN(1e6);
+    await user_program.rpc.withdraw(amount, {
+      accounts: {
+        withdrawer: user_program.provider.wallet.publicKey,
+        withdrawerTokenAccount: depositer_token_account.publicKey,
+        poolAccount: pool_program.provider.wallet.publicKey,
+        poolTokenAccount: pool_token_account.publicKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      }
+    })
+    console.log("User Token Balance: ", await user_program.provider.connection.getTokenAccountBalance(depositer_token_account.publicKey));
+    console.log("Pool Token Balance: ", await user_program.provider.connection.getTokenAccountBalance(pool_token_account.publicKey));
+  });
 });
