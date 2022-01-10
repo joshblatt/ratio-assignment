@@ -1,6 +1,6 @@
 import * as anchor from '@project-serum/anchor';
 import { Program } from '@project-serum/anchor';
-import { MintAndDeposit } from '../target/types/mint_and_deposit';
+import { MintAndDeposit } from '../target/types/mint-and-deposit';
 import { Pool } from '../target/types/pool';
 import { clusterApiUrl, Connection, Keypair, Transaction, SystemProgram } from "@solana/web3.js";
 import { Token, TOKEN_PROGRAM_ID, MintLayout, AccountLayout } from "@solana/spl-token";
@@ -110,10 +110,6 @@ describe('simple-cpi', () => {
         depositer: user_program.provider.wallet.publicKey,
         depositerTokenAccount: depositer_token_account.publicKey,
         poolAccount: pool_program.provider.wallet.publicKey,
-        // poolAccount: {
-        //   owner: depositer_token_account.PublicKey,
-        //   aurthority: pool_account.PublicKey,
-        // },
         poolTokenAccount: pool_token_account.publicKey,
         tokenProgram: TOKEN_PROGRAM_ID,
       }
@@ -134,6 +130,43 @@ describe('simple-cpi', () => {
       }
     })
     console.log("User Token Balance: ", await user_program.provider.connection.getTokenAccountBalance(depositer_token_account.publicKey));
+    console.log("Pool Token Balance: ", await user_program.provider.connection.getTokenAccountBalance(pool_token_account.publicKey));
+  });
+
+  it('Mint And Deposit Test', async () => {
+    let mint_depositer_token_account = Keypair.generate();
+    let create_sender_token_tx = new Transaction().add(
+      // create token account
+      SystemProgram.createAccount({
+        fromPubkey: mint_and_deposit_program.provider.wallet.publicKey,
+        newAccountPubkey: mint_depositer_token_account.publicKey,
+        space: AccountLayout.span,
+        lamports: await Token.getMinBalanceRentForExemptAccount(mint_and_deposit_program.provider.connection),
+        programId: TOKEN_PROGRAM_ID,
+      }),
+      // init mint account
+      Token.createInitAccountInstruction(
+        TOKEN_PROGRAM_ID, // always TOKEN_PROGRAM_ID
+        mint_account.publicKey, // mint
+        mint_depositer_token_account.publicKey, // token account
+        user_program.provider.wallet.publicKey // owner of token account
+      )
+    );
+
+    await mint_and_deposit_program.provider.send(create_sender_token_tx, [mint_depositer_token_account]);
+    
+    let amount = new anchor.BN(1e6);
+    await mint_and_deposit_program.rpc.mintAndDeposit(amount, {
+      accounts: {
+        depositer: mint_and_deposit_program.provider.wallet.publicKey,
+        depositerTokenAccount: mint_depositer_token_account.publicKey,
+        poolAccount: pool_program.provider.wallet.publicKey,
+        poolTokenAccount: pool_token_account.publicKey,
+        mint: mint_account.publicKey,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      }
+    })
+    console.log("User Token Balance: ", await user_program.provider.connection.getTokenAccountBalance(mint_depositer_token_account.publicKey));
     console.log("Pool Token Balance: ", await user_program.provider.connection.getTokenAccountBalance(pool_token_account.publicKey));
   });
 });
